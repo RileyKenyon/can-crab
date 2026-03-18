@@ -97,12 +97,16 @@ export class ResultsComponent implements OnInit {
     return Array.from(groups.entries()).map(([name, signals]) => ({ name, signals }));
   });
 
-  // Map from signal name → plot id (for fast lookup)
-  signalPlotMap = computed<Map<string, string>>(() => {
-    const map = new Map<string, string>();
+  renamingPlotId = signal<string | null>(null);
+  renamingLabel = signal('');
+
+  // Map from signal name → all plot ids it belongs to
+  signalPlotMap = computed<Map<string, string[]>>(() => {
+    const map = new Map<string, string[]>();
     for (const plot of this.plots()) {
       for (const name of plot.signalNames) {
-        map.set(name, plot.id);
+        if (!map.has(name)) map.set(name, []);
+        map.get(name)!.push(plot.id);
       }
     }
     return map;
@@ -205,36 +209,51 @@ export class ResultsComponent implements OnInit {
     }
   }
 
+  startRename(plotId: string, currentLabel: string): void {
+    this.renamingLabel.set(currentLabel);
+    this.renamingPlotId.set(plotId);
+    setTimeout(() => {
+      document.querySelector<HTMLInputElement>('.plot-title-input')?.select();
+    }, 0);
+  }
+
+  finishRename(plotId: string): void {
+    if (this.renamingPlotId() !== plotId) return;
+    const trimmed = this.renamingLabel().trim();
+    if (trimmed) {
+      this.plots.update((ps) => ps.map((p) => (p.id === plotId ? { ...p, label: trimmed } : p)));
+    }
+    this.renamingPlotId.set(null);
+  }
+
   // ── Signal assignment ────────────────────────────────────────────────────
 
+  // Checkbox reflects membership in the *active* plot.
+  // Toggling adds to / removes from the active plot only,
+  // so the same signal can appear in multiple plots simultaneously.
   toggleSignal(signalName: string): void {
-    const currentPlotId = this.signalPlotMap().get(signalName);
-    if (currentPlotId) {
-      this.plots.update((ps) =>
-        ps.map((p) =>
-          p.id === currentPlotId
-            ? { ...p, signalNames: p.signalNames.filter((n) => n !== signalName) }
-            : p,
-        ),
-      );
-    } else {
-      const activeId = this.activePlotId();
-      this.plots.update((ps) =>
-        ps.map((p) =>
-          p.id === activeId ? { ...p, signalNames: [...p.signalNames, signalName] } : p,
-        ),
-      );
-    }
+    const activeId = this.activePlotId();
+    const inActive = this.plots().find((p) => p.id === activeId)?.signalNames.includes(signalName);
+    this.plots.update((ps) =>
+      ps.map((p) => {
+        if (p.id !== activeId) return p;
+        return inActive
+          ? { ...p, signalNames: p.signalNames.filter((n) => n !== signalName) }
+          : { ...p, signalNames: [...p.signalNames, signalName] };
+      }),
+    );
   }
 
   isSignalSelected(name: string): boolean {
-    return this.signalPlotMap().has(name);
+    const activeId = this.activePlotId();
+    return this.plots().find((p) => p.id === activeId)?.signalNames.includes(name) ?? false;
   }
 
-  signalPlotLabel(name: string): string | null {
-    const plotId = this.signalPlotMap().get(name);
-    if (!plotId) return null;
-    return this.plots().find((p) => p.id === plotId)?.label ?? null;
+  signalPlotLabels(name: string): string[] {
+    const plotIds = this.signalPlotMap().get(name) ?? [];
+    return plotIds
+      .map((id) => this.plots().find((p) => p.id === id)?.label ?? '')
+      .filter(Boolean);
   }
 
   colorForSignal(name: string): string {
@@ -244,10 +263,33 @@ export class ResultsComponent implements OnInit {
 
   // ── Downloads ────────────────────────────────────────────────────────────
 
-  downloadCSV(signal: SignalData): void {
-    const rows = signal.timestamps.map((t, i) => `${t},${signal.values[i]}`);
-    const csv = `time,${signal.name}\n${rows.join('\n')}`;
-    this.triggerDownload(new Blob([csv], { type: 'text/csv' }), `${signal.name}.csv`);
+  downloadPlotCSV(plotId: string): void {
+    const plotData = this.visiblePlotData().find((p) => p.id === plotId);
+    if (!plotData?.signalDataList.length) return;
+
+    const sigs = plotData.signalDataList;
+
+    // Collect all unique timestamps across all signals, sorted
+    const allTimestamps = Array.from(
+      new Set(sigs.flatMap((s) => s.timestamps)),
+    ).sort((a, b) => a - b);
+
+    // Per-signal value lookup by timestamp
+    const valueMaps = sigs.map((sig) => {
+      const m = new Map<number, number>();
+      sig.timestamps.forEach((t, i) => m.set(t, sig.values[i]));
+      return m;
+    });
+
+    const header = `time,${sigs.map((s) => s.name).join(',')}`;
+    const rows = allTimestamps.map((t) => {
+      const vals = valueMaps.map((m) => (m.has(t) ? m.get(t) : ''));
+      return `${t},${vals.join(',')}`;
+    });
+
+    const label = this.plots().find((p) => p.id === plotId)?.label ?? 'plot';
+    const csv = `${header}\n${rows.join('\n')}`;
+    this.triggerDownload(new Blob([csv], { type: 'text/csv' }), `${label}.csv`);
   }
 
   downloadPNG(plotId: string): void {
