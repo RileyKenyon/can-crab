@@ -152,15 +152,19 @@ async fn process_dataset(pool: sqlx::PgPool, dataset_id: Uuid, dbc_str: String, 
         ds_db::bulk_insert_can_frames(&pool, dataset_id, &frames).await?;
 
         let mut signal_map: HashMap<String, Vec<(f64, f64)>> = HashMap::new();
+        let mut signal_messages: HashMap<String, String> = HashMap::new();
         for (ts, id, data) in &frames {
             if let Some(message) = dbc.messages().iter().find(|m| crate::handlers::j1939_pgn_key(m.id()) == crate::handlers::j1939_pgn_key(*id)) {
+                let msg_name = message.name().to_string();
                 let signals = message.signals();
                 let mut values = vec![0.0f64; signals.len()];
                 let num_decoded = message.decode_into(data, &mut values);
                 for (i, val) in values.iter().enumerate().take(num_decoded) {
                     if let Some(signal) = signals.iter().nth(i) {
+                        let sig_name = signal.name().to_string();
+                        signal_messages.entry(sig_name.clone()).or_insert_with(|| msg_name.clone());
                         signal_map
-                            .entry(signal.name().to_string())
+                            .entry(sig_name)
                             .or_default()
                             .push((*ts, *val));
                     }
@@ -170,7 +174,7 @@ async fn process_dataset(pool: sqlx::PgPool, dataset_id: Uuid, dbc_str: String, 
 
         let signal_sample_count =
             ds_db::bulk_insert_signals(&pool, dataset_id, &signal_map).await?;
-        ds_db::insert_dataset_signals(&pool, dataset_id, &signal_map).await?;
+        ds_db::insert_dataset_signals(&pool, dataset_id, &signal_map, &signal_messages).await?;
 
         let (recording_start, recording_end) = if frames.is_empty() {
             (None, None)

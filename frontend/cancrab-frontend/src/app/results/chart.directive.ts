@@ -4,22 +4,18 @@ import { SignalData } from './results.component';
 
 Chart.register(...registerables);
 
-const CHART_COLORS = [
-  '#3b82f6', '#ef4444', '#10b981', '#f97316',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-];
-
 @Directive({ selector: 'canvas[appChart]' })
 export class ChartDirective implements OnChanges, OnDestroy {
-  @Input({ required: true }) signal!: SignalData;
-  @Input() colorIndex = 0;
+  @Input({ required: true }) signals!: SignalData[];
+  @Input() signalColors: string[] = [];
+  @Input() plotId = '';
 
   private chart: Chart | null = null;
 
   constructor(private el: ElementRef<HTMLCanvasElement>) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['signal'] || changes['colorIndex']) {
+    if (changes['signals'] || changes['signalColors']) {
       this.buildChart();
     }
   }
@@ -30,24 +26,25 @@ export class ChartDirective implements OnChanges, OnDestroy {
 
   private buildChart(): void {
     this.chart?.destroy();
-    const color = CHART_COLORS[this.colorIndex % CHART_COLORS.length];
+    const single = this.signals.length === 1;
+
+    const datasets = this.signals.map((signal, i) => {
+      const color = this.signalColors[i] ?? '#3b82f6';
+      return {
+        label: signal.name,
+        data: signal.timestamps.map((t, j) => ({ x: t, y: signal.values[j] })),
+        borderColor: color,
+        backgroundColor: color + '20',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: single,
+      };
+    });
 
     this.chart = new Chart(this.el.nativeElement, {
       type: 'line',
-      data: {
-        datasets: [
-          {
-            label: this.signal.name,
-            data: this.signal.timestamps.map((t, i) => ({ x: t, y: this.signal.values[i] })),
-            borderColor: color,
-            backgroundColor: color + '20',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.3,
-            fill: true,
-          },
-        ],
-      },
+      data: { datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -59,12 +56,11 @@ export class ChartDirective implements OnChanges, OnDestroy {
             grid: { color: 'rgba(128,128,128,0.1)' },
           },
           y: {
-            title: { display: true, text: this.signal.name },
             grid: { color: 'rgba(128,128,128,0.1)' },
           },
         },
         plugins: {
-          legend: { display: false },
+          legend: { display: !single },
           tooltip: { mode: 'index', intersect: false },
         },
       },

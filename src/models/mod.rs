@@ -36,6 +36,7 @@ pub struct DatasetSignal {
     pub id: Uuid,
     pub dataset_id: Uuid,
     pub signal_name: String,
+    pub message_name: String,
     pub unit: Option<String>,
     pub sample_count: i64,
     pub value_min: Option<f64>,

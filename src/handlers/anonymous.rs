@@ -9,6 +9,7 @@ use crate::state::{AnonCanMessage, AppState};
 #[derive(Serialize)]
 pub struct SignalData {
     pub name: String,
+    pub message_name: String,
     pub timestamps: Vec<f64>,
     pub values: Vec<f64>,
 }
@@ -80,15 +81,19 @@ pub async fn get_data(
     let messages = state.anon_log.lock().await.clone();
 
     let mut signal_map: HashMap<String, Vec<(f64, f64)>> = HashMap::new();
+    let mut signal_messages: HashMap<String, String> = HashMap::new();
     for msg in messages {
         if let Some(message) = dbc.messages().iter().find(|m| crate::handlers::j1939_pgn_key(m.id()) == crate::handlers::j1939_pgn_key(msg.id)) {
+            let msg_name = message.name().to_string();
             let signals = message.signals();
             let mut values = vec![0.0f64; signals.len()];
             let num_decoded = message.decode_into(&msg.data, &mut values);
             for (i, val) in values.iter().enumerate().take(num_decoded) {
                 if let Some(signal) = signals.iter().nth(i) {
+                    let sig_name = signal.name().to_string();
+                    signal_messages.entry(sig_name.clone()).or_insert_with(|| msg_name.clone());
                     signal_map
-                        .entry(signal.name().to_string())
+                        .entry(sig_name)
                         .or_default()
                         .push((msg.timestamp, *val));
                 }
@@ -99,6 +104,7 @@ pub async fn get_data(
     let signals = signal_map
         .into_iter()
         .map(|(name, data)| SignalData {
+            message_name: signal_messages.get(&name).cloned().unwrap_or_default(),
             name,
             timestamps: data.iter().map(|(t, _)| *t).collect(),
             values: data.iter().map(|(_, v)| *v).collect(),

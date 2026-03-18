@@ -165,6 +165,7 @@ pub async fn insert_dataset_signals(
     pool: &PgPool,
     dataset_id: Uuid,
     signal_map: &HashMap<String, Vec<(f64, f64)>>,
+    signal_messages: &HashMap<String, String>,
 ) -> Result<(), AppError> {
     for (signal_name, samples) in signal_map {
         if samples.is_empty() {
@@ -175,16 +176,18 @@ pub async fn insert_dataset_signals(
         let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let mean = values.iter().sum::<f64>() / values.len() as f64;
         let count = samples.len() as i64;
+        let message_name = signal_messages.get(signal_name).map(|s| s.as_str()).unwrap_or("");
 
         sqlx::query(
             "INSERT INTO dataset_signals
-                (dataset_id, signal_name, sample_count, value_min, value_max, value_mean)
-             VALUES ($1, $2, $3, $4, $5, $6)
+                (dataset_id, signal_name, message_name, sample_count, value_min, value_max, value_mean)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (dataset_id, signal_name) DO UPDATE SET
-                sample_count = $3, value_min = $4, value_max = $5, value_mean = $6",
+                message_name = $3, sample_count = $4, value_min = $5, value_max = $6, value_mean = $7",
         )
         .bind(dataset_id)
         .bind(signal_name.as_str())
+        .bind(message_name)
         .bind(count)
         .bind(min)
         .bind(max)
