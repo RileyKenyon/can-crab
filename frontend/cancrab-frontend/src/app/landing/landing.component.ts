@@ -32,6 +32,8 @@ export class LandingComponent {
   uploading = signal(false);
   processing = signal(false);
   error = signal<string | null>(null);
+  draggingCan = signal(false);
+  draggingDbc = signal(false);
 
   onCanFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -46,6 +48,61 @@ export class LandingComponent {
     if (input.files?.[0]) {
       this.dbcFile.set(input.files[0]);
       this.error.set(null);
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  onCanDragEnter(event: DragEvent): void {
+    event.preventDefault();
+    this.draggingCan.set(true);
+  }
+
+  onCanDragLeave(event: DragEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const related = event.relatedTarget as Node | null;
+    if (!related || !target.contains(related)) {
+      this.draggingCan.set(false);
+    }
+  }
+
+  onCanDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.draggingCan.set(false);
+    const file = event.dataTransfer?.files[0];
+    if (file && /\.(log|txt|asc)$/i.test(file.name)) {
+      this.canFile.set(file);
+      this.error.set(null);
+    } else if (file) {
+      this.error.set('CAN log must be a .log, .txt, or .asc file.');
+    }
+  }
+
+  onDbcDragEnter(event: DragEvent): void {
+    event.preventDefault();
+    this.draggingDbc.set(true);
+  }
+
+  onDbcDragLeave(event: DragEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const related = event.relatedTarget as Node | null;
+    if (!related || !target.contains(related)) {
+      this.draggingDbc.set(false);
+    }
+  }
+
+  onDbcDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.draggingDbc.set(false);
+    const file = event.dataTransfer?.files[0];
+    if (file && /\.dbc$/i.test(file.name)) {
+      this.dbcFile.set(file);
+      this.error.set(null);
+    } else if (file) {
+      this.error.set('DBC file must have a .dbc extension.');
     }
   }
 
