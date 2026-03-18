@@ -66,9 +66,21 @@
   border-style: solid;
 }
 
+.upload-card.dragging .upload-zone {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.upload-card.dragging .upload-icon {
+  color: var(--accent);
+  transform: translateY(-4px);
+  transition: color 0.15s, transform 0.15s;
+}
+
 .upload-icon {
   color: var(--text-muted);
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.15s;
 }
 
 .upload-icon.active {

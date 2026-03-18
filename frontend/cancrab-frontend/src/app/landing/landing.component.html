@@ -5,7 +5,15 @@
 
   <div class="upload-grid">
     <!-- CAN Log Upload -->
-    <div class="upload-card" [class.has-file]="canFile()">
+    <div
+      class="upload-card"
+      [class.has-file]="canFile()"
+      [class.dragging]="draggingCan()"
+      (dragover)="onDragOver($event)"
+      (dragenter)="onCanDragEnter($event)"
+      (dragleave)="onCanDragLeave($event)"
+      (drop)="onCanDrop($event)"
+    >
       <input
         type="file"
         id="can-file"
@@ -24,14 +32,24 @@
         <p class="upload-label">CAN Log File</p>
         @if (canFile()) {
           <p class="file-name">{{ canFile()!.name }}</p>
+        } @else if (draggingCan()) {
+          <p class="upload-hint">Drop it!</p>
         } @else {
-          <p class="upload-hint">Click to upload · .log .txt .asc</p>
+          <p class="upload-hint">Click or drag · .log .txt .asc</p>
         }
       </label>
     </div>
 
     <!-- DBC File Upload -->
-    <div class="upload-card" [class.has-file]="dbcFile()">
+    <div
+      class="upload-card"
+      [class.has-file]="dbcFile()"
+      [class.dragging]="draggingDbc()"
+      (dragover)="onDragOver($event)"
+      (dragenter)="onDbcDragEnter($event)"
+      (dragleave)="onDbcDragLeave($event)"
+      (drop)="onDbcDrop($event)"
+    >
       <input
         type="file"
         id="dbc-file"
@@ -50,8 +68,10 @@
         <p class="upload-label">DBC File</p>
         @if (dbcFile()) {
           <p class="file-name">{{ dbcFile()!.name }}</p>
+        } @else if (draggingDbc()) {
+          <p class="upload-hint">Drop it!</p>
         } @else {
-          <p class="upload-hint">Click to upload · .dbc</p>
+          <p class="upload-hint">Click or drag · .dbc</p>
         }
       </label>
     </div>
