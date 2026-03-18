@@ -12,6 +12,7 @@ import { AuthService } from './auth/auth.service';
 })
 export class App implements OnInit {
   isDark = signal(false);
+  sidebarOpen = signal(false);
 
   constructor(
     public sessions: SessionService,
@@ -44,6 +45,7 @@ export class App implements OnInit {
 
   navigateToSession(id: string): void {
     this.sessions.setActive(id);
+    this.sidebarOpen.set(false);
     this.router.navigate(['/results']);
   }
 }
