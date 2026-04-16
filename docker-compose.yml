@@ -1,0 +1,44 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     cancrab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cancrab}
+      POSTGRES_DB:       cancrab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U cancrab"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # ── Rust backend ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context:    .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://cancrab:${POSTGRES_PASSWORD:-cancrab}@postgres:5432/cancrab
+      JWT_SECRET:   ${JWT_SECRET:-changeme-please-set-jwt-secret-in-env}
+      RUST_LOG:     ${RUST_LOG:-info}
+      SERVER_ADDR:  0.0.0.0:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Angular + nginx frontend ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context:    ./frontend/cancrab-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+
+volumes:
+  postgres_data:
