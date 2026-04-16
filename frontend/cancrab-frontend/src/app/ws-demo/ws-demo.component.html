@@ -1,0 +1,8 @@
+<div>
+  <h3>WebSocket demo</h3>
+  <input [(ngModel)]="inputText" placeholder="message" />
+
+  <ul *ngIf="message">
+    <li>{{ message | json }}</li>
+  </ul>
+</div>

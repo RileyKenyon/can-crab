@@ -1,0 +1,14 @@
+{
+  "^/ws$": {
+    "target": "http://localhost:3000",
+    "ws": true,
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
