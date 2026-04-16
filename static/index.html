@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAN Crab Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <h1>CAN Crab Viewer</h1>
+  <form id="uploadForm" enctype="multipart/form-data">
+    <label for="dbc">DBC File:</label>
+    <input type="file" id="dbc" name="dbc" accept=".dbc" required><br>
+    <label for="log">Log File:</label>
+    <input type="file" id="log" name="log" accept=".log" required><br>
+    <button type="submit">Upload and Process</button>
+  </form>
+  <div id="signalSelector" style="display: none;">
+    <h2>Select Signals to Plot</h2>
+    <div id="signals"></div>
+    <button id="plotBtn">Plot</button>
+  </div>
+  <canvas id="chart" width="800" height="400"></canvas>
+  <button id="downloadBtn" style="display: none;">Download as PNG</button>
+
+  <script>
+    let chart;
+    let signals = [];
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('dbc', document.getElementById('dbc').files[0]);
+      formData.append('log', document.getElementById('log').files[0]);
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        console.log('Upload response ok');
+        console.log('Fetching data');
+        const data = await fetch('/data').then(r => r.json());
+        console.log('Data received:', data);
+        signals = data;
+        displaySignalSelector();
+      } else {
+        alert('Upload failed');
+      }
+    });
+
+    function displaySignalSelector() {
+      console.log('Displaying signals:', signals);
+      if (signals.length === 0) {
+        console.log('No signals to display');
+      }
+      const container = document.getElementById('signals');
+      container.innerHTML = '';
+      signals.forEach(signal => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${signal.name}"> ${signal.name}`;
+        container.appendChild(label);
+        container.appendChild(document.createElement('br'));
+      });
+      document.getElementById('signalSelector').style.display = 'block';
+    }
+
+    document.getElementById('plotBtn').addEventListener('click', () => {
+      console.log('Plot button clicked');
+      const selected = Array.from(document.querySelectorAll('#signals input:checked')).map(cb => cb.value);
+      console.log('Selected signals:', selected);
+      const datasets = signals.filter(s => selected.includes(s.name)).map(s => ({
+        label: s.name,
+        data: s.timestamps.map((t, i) => ({ x: t, y: s.values[i] })),
+        borderColor: getRandomColor(),
+        fill: false
+      }));
+      console.log('Datasets:', datasets);
+
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: { datasets },
+        options: {
+          scales: {
+            x: { type: 'linear', position: 'bottom' }
+          }
+        }
+      });
+      console.log('Chart created');
+      document.getElementById('downloadBtn').style.display = 'block';
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'chart.png';
+      link.href = document.getElementById('chart').toDataURL();
+      link.click();
+    });
+
+    function getRandomColor() {
+      return '#' + Math.floor(Math.random() * 16777215).toString(16);
+    }
+  </script>
+</body>
+
+</html>
