@@ -3,3 +3,5 @@ logs
 .devcontainer
 node_modules
 /target
+.env
+.claude/worktrees/
